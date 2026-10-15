@@ -1,0 +1,156 @@
+# Installed and refreshed by `nix run github:jgus-org/flake-lib/v1#update-workflows`: the
+# tool is taken from flake-lib's own flake URL rather than from this repository, because
+# there is nothing producer-specific in it to re-declare. A repository that does not have
+# this file yet installs it with
+# `nix run github:jgus-org/flake-lib/v1#update-workflows -- adopt update-branches.yml`.
+# Edit it in jgus-org/flake-lib's templates/workflows, not here. The workflow below updates
+# itself: a run reads this file when it starts, so the first job refreshes it and
+# commits that revision, and every later job checks out that commit. The scripts it
+# invokes therefore move in the same run as the flake-lib input they come from.
+
+name: Update branches
+
+on:
+  schedule:
+    - cron: '0 7 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update
+  cancel-in-progress: false
+
+env:
+  MINIMUM_TRACKING_VERSION: "2.4.3"
+
+jobs:
+  workflows:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.update.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Update workflows from flake-lib templates
+        id: update
+        run: nix run github:jgus-org/flake-lib/v1#update-workflows
+
+  discover:
+    needs: workflows
+    if: always()
+    runs-on: ubuntu-latest
+    outputs:
+      base_sha: ${{ steps.plan.outputs.base_sha }}
+      versions: ${{ steps.plan.outputs.versions }}
+      newest_stable: ${{ steps.plan.outputs.newest_stable }}
+      maintenance: ${{ steps.plan.outputs.maintenance }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.workflows.outputs.sha || github.sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Discover tracked versions and specification base
+        id: plan
+        env:
+          # gh CLI reads GH_TOKEN, not GITHUB_TOKEN; required for github-source flakes.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: nix run .#update-branches -- list
+
+  newest-stable:
+    needs: [workflows, discover]
+    if: always() && needs.discover.result == 'success' && needs.discover.outputs.newest_stable != 'null'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.workflows.outputs.sha || github.sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Refresh newest stable
+        env:
+          BASE_SHA: ${{ needs.discover.outputs.base_sha }}
+          ENTRY: ${{ needs.discover.outputs.newest_stable }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version=$(jq -r '.version' <<<"${ENTRY}")
+          upstream_version=$(jq -r '.upstreamVersion' <<<"${ENTRY}")
+          nix run .#update-branches -- refresh \
+            --base-sha "${BASE_SHA}" \
+            --version "${version}" \
+            --upstream-version "${upstream_version}"
+
+      - name: Publish newest stable early
+        continue-on-error: true
+        env:
+          BASE_SHA: ${{ needs.discover.outputs.base_sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSIONS: ${{ needs.discover.outputs.versions }}
+        run: |
+          nix run .#update-branches -- publish \
+            --base-sha "${BASE_SHA}" \
+            --versions-json "${VERSIONS}"
+
+  maintenance:
+    needs: [workflows, discover, newest-stable]
+    if: always() && needs.discover.result == 'success' && needs.discover.outputs.maintenance != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        entry: ${{ fromJson(needs.discover.outputs.maintenance) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.workflows.outputs.sha || github.sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Refresh exact version
+        env:
+          BASE_SHA: ${{ needs.discover.outputs.base_sha }}
+          VERSION: ${{ matrix.entry.version }}
+          UPSTREAM_VERSION: ${{ matrix.entry.upstreamVersion }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          nix run .#update-branches -- refresh \
+            --base-sha "${BASE_SHA}" \
+            --version "${VERSION}" \
+            --upstream-version "${UPSTREAM_VERSION}"
+
+  publish:
+    needs: [workflows, discover, newest-stable, maintenance]
+    if: always() && needs.discover.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.workflows.outputs.sha || github.sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Publish aggregate pointers
+        env:
+          BASE_SHA: ${{ needs.discover.outputs.base_sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSIONS: ${{ needs.discover.outputs.versions }}
+        run: |
+          nix run .#update-branches -- publish \
+            --base-sha "${BASE_SHA}" \
+            --versions-json "${VERSIONS}"

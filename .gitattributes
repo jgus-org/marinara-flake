@@ -1,0 +1,6 @@
+pin.nix merge=ours
+flake.lock merge=ours
+requirements.in merge=ours
+requirements-*.lock merge=ours
+wheels-*.json merge=ours
+python-readiness.json merge=ours
