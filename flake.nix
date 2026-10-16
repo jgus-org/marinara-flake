@@ -198,6 +198,7 @@
             );
           };
           update-branches = flake-lib.lib.mkUpdateBranches {
+            minimumTrackingVersion = "2.4.3";
             inherit pkgs source;
             pinSchema = "github-pnpm";
             extraHashes = [
