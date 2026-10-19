@@ -91,7 +91,7 @@
             inherit pnpm;
             fetcherVersion = 4;
             hash = pnpmDepsHash;
-            nativeBuildInputs = [ pkgs.nodejs_24 ];
+            nativeBuildInputs = [ pkgs.nodejs ];
             prePnpmInstall = ''
               substituteInPlace .npmrc --replace-fail "store-dir=.pnpm-store" ""
             '';
@@ -99,7 +99,7 @@
 
           nativeBuildInputs = [
             pkgs.makeWrapper
-            pkgs.nodejs_24
+            pkgs.nodejs
             pkgs.pnpmConfigHook
             pnpm
           ];
@@ -139,7 +139,7 @@
             cp -R docs ''${APP_ROOT}/
             cp README.md ''${APP_ROOT}/
 
-            makeWrapper ${lib.getExe pkgs.nodejs_24} ''${out}/bin/marinara-engine \
+            makeWrapper ${lib.getExe pkgs.nodejs} ''${out}/bin/marinara-engine \
               --add-flags "''${APP_ROOT}/packages/server/dist/index.js" \
               --chdir "''${APP_ROOT}" \
               --prefix PATH : ${lib.makeBinPath runtimePrograms} \
@@ -154,7 +154,7 @@
 
             env \
               MARINARA_REQUIRE_PATH="''${out}/lib/marinara-engine/packages/server/package.json" \
-              ${lib.getExe pkgs.nodejs_24} --input-type=module --eval \
+              ${lib.getExe pkgs.nodejs} --input-type=module --eval \
                 "import { createRequire } from 'node:module'; const require = createRequire(process.env.MARINARA_REQUIRE_PATH); require('sharp'); require('onnxruntime-node');"
 
             runHook postInstallCheck
