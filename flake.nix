@@ -170,7 +170,6 @@
           default = marinara;
           update-version = flake-lib.lib.mkUpdateVersion {
             inherit pkgs source;
-            buildAttr = "marinara";
             buildFailureHash = "pnpmDepsHash";
             extraHashes = [
               "pnpmVersion"
