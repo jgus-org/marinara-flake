@@ -4,6 +4,10 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     flake-utils.url = "github:numtide/flake-utils";
+    treefmt-nix = {
+      url = "github:numtide/treefmt-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     flake-lib = {
       url = "github:jgus-org/flake-lib/v1";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -13,8 +17,10 @@
 
   outputs =
     {
+      self,
       nixpkgs,
       flake-utils,
+      treefmt-nix,
       flake-lib,
       ...
     }:
@@ -35,6 +41,10 @@
           config.permittedInsecurePackages = [ "pnpm-10.34.5" ];
         };
         inherit (pkgs) lib;
+        treefmtEval = treefmt-nix.lib.evalModule pkgs {
+          projectRootFile = "flake.nix";
+          programs.nixfmt.enable = true;
+        };
         pnpm = pkgs.pnpm_10.override {
           version = pnpmVersion;
           hash = pnpmHash;
@@ -165,6 +175,10 @@
         });
       in
       {
+        formatter = treefmtEval.config.build.wrapper;
+
+        checks.formatting = treefmtEval.config.build.check self;
+
         packages = {
           inherit marinara;
           default = marinara;
