@@ -3,7 +3,6 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
-    flake-utils.url = "github:numtide/flake-utils";
     treefmt-nix = {
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -11,7 +10,6 @@
     flake-lib = {
       url = "github:jgus-org/flake-lib/v1";
       inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-utils.follows = "flake-utils";
     };
   };
 
@@ -19,12 +17,11 @@
     {
       self,
       nixpkgs,
-      flake-utils,
       treefmt-nix,
       flake-lib,
       ...
     }:
-    flake-utils.lib.eachDefaultSystem (
+    flake-lib.lib.eachDefaultLinuxSystem (
       system:
       let
         pin = import ./pin.nix;
@@ -170,7 +167,7 @@
             homepage = "https://github.com/Pasta-Devs/Marinara-Engine";
             license = lib.licenses.agpl3Only;
             mainProgram = "marinara-engine";
-            platforms = lib.platforms.linux;
+            platforms = flake-lib.lib.defaultLinuxSystems;
           };
         });
       in
