@@ -2,8 +2,22 @@
 
 A Nix flake that provides [Marinara Engine](https://github.com/Pasta-Devs/Marinara-Engine), an AI chat, roleplay, and game frontend, built from upstream source.
 
+## Consuming it
+
+```nix
+# flake.nix
+{
+  inputs.marinara.url = "github:jgus-org/marinara-flake";
+
+  # ...
+  environment.systemPackages = [ inputs.marinara.packages.${system}.marinara ];
+}
 ```
-nix build .#marinara
+
+Or build it without adding it to a flake:
+
+```sh
+nix build "github:jgus-org/marinara-flake"
 ./result/bin/marinara-engine
 ```
 
