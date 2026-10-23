@@ -23,10 +23,10 @@ nix build "github:jgus-org/marinara-flake"
 
 ## What you get
 
-| Attribute | Description |
-| --- | --- |
-| `packages.<system>.marinara` | The Marinara server as a single launchable command, `marinara-engine`. |
-| `packages.<system>.default` | The same package. |
+| Attribute                                           | Description                                                                                             |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `packages.<system>.marinara`                        | The Marinara server as a single launchable command, `marinara-engine`.                                  |
+| `packages.<system>.default`                         | The same package.                                                                                       |
 | `packages.<system>.marinara.passthru.runtimeRootfs` | An empty filesystem hierarchy to copy into a container image root. See [Container use](#container-use). |
 
 The launcher carries its own toolchain — Node, `pnpm`, `python3`, and bubblewrap are all resolved from the package, not from the host — and starts the server in its application directory.
@@ -39,7 +39,7 @@ Linux only. Asking for another system reports the package as unsupported.
 
 The server sandboxes its tool execution with bubblewrap, which needs unprivileged user namespaces available wherever the server runs — including inside a container, where the container runtime decides whether they are permitted. A host that restricts them cannot create the sandbox.
 
-Native dependencies (image and inference runtimes) resolve against the C++ runtime, OpenSSL, and a Vulkan loader, all supplied by the package. A Vulkan *driver* is not: CPU inference works as-is, and a GPU-enabled deployment supplies its own driver and makes it visible in the container or on the host.
+Native dependencies (image and inference runtimes) resolve against the C++ runtime, OpenSSL, and a Vulkan loader, all supplied by the package. A Vulkan _driver_ is not: CPU inference works as-is, and a GPU-enabled deployment supplies its own driver and makes it visible in the container or on the host.
 
 ## Container use
 

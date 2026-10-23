@@ -2,23 +2,15 @@
   description = "Marinara Engine AI frontend";
 
   inputs = {
+    flake-lib.url = "github:jgus-org/flake-lib/v1";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
-    treefmt-nix = {
-      url = "github:numtide/treefmt-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    flake-lib = {
-      url = "github:jgus-org/flake-lib/v1";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs =
     {
       self,
-      nixpkgs,
-      treefmt-nix,
       flake-lib,
+      nixpkgs,
       ...
     }:
     flake-lib.lib.eachDefaultLinuxSystem (
@@ -26,30 +18,29 @@
       let
         pin = import ./pin.nix;
         inherit (pin)
-          version
-          sourceRev
-          sourceHash
-          pnpmVersion
-          pnpmHash
           pnpmDepsHash
+          pnpmHash
+          pnpmVersion
+          sourceHash
+          sourceRev
+          version
           ;
         pkgs = import nixpkgs {
           inherit system;
           config.permittedInsecurePackages = [ "pnpm-10.34.5" ];
         };
         inherit (pkgs) lib;
-        treefmtEval = treefmt-nix.lib.evalModule pkgs {
-          projectRootFile = "flake.nix";
-          programs.nixfmt.enable = true;
+        orgFormatting = flake-lib.lib.mkFormatting {
+          inherit self system;
         };
         pnpm = pkgs.pnpm_10.override {
-          version = pnpmVersion;
           hash = pnpmHash;
+          version = pnpmVersion;
         };
         source = {
-          type = "github";
           owner = "Pasta-Devs";
           repo = "Marinara-Engine";
+          type = "github";
         };
         runtimePrograms = [
           pkgs.bubblewrap
@@ -63,49 +54,7 @@
         ];
 
         marinara = pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
-          pname = "marinara-engine";
           inherit version;
-
-          src = pkgs.fetchFromGitHub {
-            inherit (source) owner repo;
-            rev = sourceRev;
-            hash = sourceHash;
-          };
-
-          postPatch = ''
-            substituteInPlace packages/server/src/services/sandbox/bubblewrap-runtime.ts \
-              --replace-fail \
-                'const BWRAP_CANDIDATES = [' \
-                'const BWRAP_CANDIDATES = ["${lib.getExe pkgs.bubblewrap}", '
-            substituteInPlace packages/server/src/services/sidecar/sidecar-runtime.service.ts \
-              --replace-fail \
-                '["/usr/lib/libvulkan.so", "/usr/lib64/libvulkan.so", "/usr/lib/x86_64-linux-gnu/libvulkan.so.1"]' \
-                '["${pkgs.vulkan-loader}/lib/libvulkan.so.1", "/usr/lib/libvulkan.so", "/usr/lib64/libvulkan.so", "/usr/lib/x86_64-linux-gnu/libvulkan.so.1"]'
-          '';
-
-          pnpmDeps = pkgs.fetchPnpmDeps {
-            inherit (finalAttrs) pname version src;
-            inherit pnpm;
-            fetcherVersion = 4;
-            hash = pnpmDepsHash;
-            nativeBuildInputs = [ pkgs.nodejs_24 ];
-            prePnpmInstall = ''
-              substituteInPlace .npmrc --replace-fail "store-dir=.pnpm-store" ""
-            '';
-          };
-
-          nativeBuildInputs = [
-            pkgs.makeWrapper
-            pkgs.nodejs_24
-            pkgs.pnpmConfigHook
-            pnpm
-          ];
-
-          env.NODE_OPTIONS = "--max-old-space-size=4096";
-          prePnpmInstall = ''
-            substituteInPlace .npmrc --replace-fail "store-dir=.pnpm-store" ""
-          '';
-
           buildPhase = ''
             runHook preBuild
 
@@ -116,7 +65,18 @@
 
             runHook postBuild
           '';
+          doInstallCheck = true;
+          env.NODE_OPTIONS = "--max-old-space-size=4096";
+          installCheckPhase = ''
+            runHook preInstallCheck
 
+            env \
+              MARINARA_REQUIRE_PATH="''${out}/lib/marinara-engine/packages/server/package.json" \
+              ${lib.getExe pkgs.nodejs_24} --input-type=module --eval \
+                "import { createRequire } from 'node:module'; const require = createRequire(process.env.MARINARA_REQUIRE_PATH); require('sharp'); require('onnxruntime-node');"
+
+            runHook postInstallCheck
+          '';
           installPhase = ''
             runHook preInstall
 
@@ -144,24 +104,6 @@
 
             runHook postInstall
           '';
-
-          doInstallCheck = true;
-          installCheckPhase = ''
-            runHook preInstallCheck
-
-            env \
-              MARINARA_REQUIRE_PATH="''${out}/lib/marinara-engine/packages/server/package.json" \
-              ${lib.getExe pkgs.nodejs_24} --input-type=module --eval \
-                "import { createRequire } from 'node:module'; const require = createRequire(process.env.MARINARA_REQUIRE_PATH); require('sharp'); require('onnxruntime-node');"
-
-            runHook postInstallCheck
-          '';
-
-          passthru.runtimeRootfs =
-            (pkgs.buildFHSEnv {
-              name = "marinara-engine-runtime";
-            }).fhsenv;
-
           meta = {
             description = "AI chat, roleplay, and game frontend";
             homepage = "https://github.com/Pasta-Devs/Marinara-Engine";
@@ -169,23 +111,64 @@
             mainProgram = "marinara-engine";
             platforms = flake-lib.lib.defaultLinuxSystems;
           };
+          nativeBuildInputs = [
+            pkgs.makeWrapper
+            pkgs.nodejs_24
+            pkgs.pnpmConfigHook
+            pnpm
+          ];
+          passthru.runtimeRootfs =
+            (pkgs.buildFHSEnv {
+              name = "marinara-engine-runtime";
+            }).fhsenv;
+          pname = "marinara-engine";
+          pnpmDeps = pkgs.fetchPnpmDeps {
+            inherit (finalAttrs) pname src version;
+            inherit pnpm;
+            fetcherVersion = 4;
+            hash = pnpmDepsHash;
+            nativeBuildInputs = [ pkgs.nodejs_24 ];
+            prePnpmInstall = ''
+              substituteInPlace .npmrc --replace-fail "store-dir=.pnpm-store" ""
+            '';
+          };
+          postPatch = ''
+            substituteInPlace packages/server/src/services/sandbox/bubblewrap-runtime.ts \
+              --replace-fail \
+                'const BWRAP_CANDIDATES = [' \
+                'const BWRAP_CANDIDATES = ["${lib.getExe pkgs.bubblewrap}", '
+            substituteInPlace packages/server/src/services/sidecar/sidecar-runtime.service.ts \
+              --replace-fail \
+                '["/usr/lib/libvulkan.so", "/usr/lib64/libvulkan.so", "/usr/lib/x86_64-linux-gnu/libvulkan.so.1"]' \
+                '["${pkgs.vulkan-loader}/lib/libvulkan.so.1", "/usr/lib/libvulkan.so", "/usr/lib64/libvulkan.so", "/usr/lib/x86_64-linux-gnu/libvulkan.so.1"]'
+          '';
+          prePnpmInstall = ''
+            substituteInPlace .npmrc --replace-fail "store-dir=.pnpm-store" ""
+          '';
+          src = pkgs.fetchFromGitHub {
+            inherit (source) owner repo;
+            hash = sourceHash;
+            rev = sourceRev;
+          };
         });
       in
       {
-        formatter = treefmtEval.config.build.wrapper;
-
-        checks.formatting = treefmtEval.config.build.check self;
-
+        checks.formatting = orgFormatting.check;
+        formatter = orgFormatting.formatter;
         packages = {
           inherit marinara;
           default = marinara;
-          update-version = flake-lib.lib.mkUpdateVersion {
+          update-branches = flake-lib.lib.mkUpdateBranches {
             inherit pkgs source;
-            buildFailureHash = "pnpmDepsHash";
             extraHashes = [
               "pnpmVersion"
               "pnpmHash"
             ];
+            minimumTrackingVersion = "2.4.3";
+            pinSchema = "github-pnpm";
+          };
+          update-version = flake-lib.lib.mkUpdateVersion {
+            inherit pkgs source;
             artifactHook = lib.getExe (
               pkgs.writeShellApplication {
                 name = "marinara-pnpm-pin";
@@ -206,11 +189,7 @@
                 '';
               }
             );
-          };
-          update-branches = flake-lib.lib.mkUpdateBranches {
-            minimumTrackingVersion = "2.4.3";
-            inherit pkgs source;
-            pinSchema = "github-pnpm";
+            buildFailureHash = "pnpmDepsHash";
             extraHashes = [
               "pnpmVersion"
               "pnpmHash"
