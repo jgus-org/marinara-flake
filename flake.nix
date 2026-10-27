@@ -27,13 +27,12 @@
           ;
         pkgs = import nixpkgs {
           inherit system;
-          config.permittedInsecurePackages = [ "pnpm-10.34.5" ];
         };
         inherit (pkgs) lib;
         orgFormatting = flake-lib.lib.mkFormatting {
           inherit self system;
         };
-        pnpm = pkgs.pnpm_10.override {
+        pnpm = pkgs.pnpm_10_latest.override {
           hash = pnpmHash;
           version = pnpmVersion;
         };
@@ -107,7 +106,7 @@
           meta = {
             description = "AI chat, roleplay, and game frontend";
             homepage = "https://github.com/Pasta-Devs/Marinara-Engine";
-            license = lib.licenses.agpl3Only;
+            license = lib.licenses.agpl3Plus;
             mainProgram = "marinara-engine";
             platforms = flake-lib.lib.defaultLinuxSystems;
           };
