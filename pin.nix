@@ -1,9 +1,9 @@
 # Auto-managed by `nix run .#update-version`. Manual edits will be overwritten by the next bump.
 {
-  pnpmDepsHash = "sha256-30xi3BjthaPXjONjnXj61To12lmDIsDwZ3rOyRImpRs=";
+  pnpmDepsHash = "sha256-+np2QEcN9w9GGn4ds5Yuwk2OsrGY8Zrnl/YFgQoaLaA=";
   pnpmHash = "sha256-zLXEecqxsAYhMlv+fUyaioAx56Ul1ySeJ17L7IGwjbI=";
   pnpmVersion = "10.34.5";
-  sourceHash = "sha256-TY+04kSwz14hcC6U0YM4Filpm5uv5ng8EVrVA9Khc+w=";
-  sourceRev = "8042ef6ec638801de45b8d82f82cd2dea85f51a4";
-  version = "2.5.1";
+  sourceHash = "sha256-oF/KYT/nQIuS63WrD4YO4Qwl7lyOdqRYFDzdjmSyMyY=";
+  sourceRev = "1a299369ac7025028c3ce1b80cc59f47b7b0691b";
+  version = "2.4.4";
 }
