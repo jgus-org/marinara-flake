@@ -45,8 +45,4 @@ Native dependencies (image and inference runtimes) resolve against the C++ runti
 
 `runtimeRootfs` is a filesystem skeleton — directories only, no packages. Copy it onto the image root so that the loader paths the server searches for exist; the package's own closure arrives with the package, not from here. It is not a base image and contains no runtime dependencies.
 
-## License
-
-Marinara Engine is AGPL-3.0-only. This flake redistributes nothing: it builds from upstream source at build time, and the result remains governed by upstream's license.
-
-One allowance is worth knowing about, because it changes what you are shipping. The pnpm release upstream pins is marked insecure by nixpkgs, which refuses to evaluate it; this flake permits that one release by name so the build proceeds. The advisories nixpkgs records against it are current as of its nixpkgs revision. The pinned pnpm is present at runtime, not only during the build, because the server invokes it.
+See [LICENSE.md](LICENSE.md) for licensing and copyright, and [NOTICE.md](NOTICE.md) for the terms of upstream and distributed artifacts.
