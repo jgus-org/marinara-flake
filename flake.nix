@@ -2,8 +2,11 @@
   description = "Marinara Engine AI frontend";
 
   inputs = {
-    flake-lib.url = "github:jgus-org/flake-lib/v1";
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
+    flake-lib = {
+      inputs.nixpkgs.follows = "nixpkgs";
+      url = "github:jgus-org/flake-lib/v1";
+    };
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
   outputs =
@@ -32,7 +35,7 @@
         orgFormatting = flake-lib.lib.mkFormatting {
           inherit self system;
         };
-        pnpm = pkgs.pnpm_10_latest.override {
+        pnpm = pkgs.pnpm_10.override {
           hash = pnpmHash;
           version = pnpmVersion;
         };
