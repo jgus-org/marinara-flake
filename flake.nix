@@ -35,7 +35,7 @@
         orgFormatting = flake-lib.lib.mkFormatting {
           inherit self system;
         };
-        pnpm = pkgs.pnpm_10.override {
+        pnpm = (pkgs.pnpm_10_latest or pkgs.pnpm_10).override {
           hash = pnpmHash;
           version = pnpmVersion;
         };
