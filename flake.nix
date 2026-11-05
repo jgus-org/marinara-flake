@@ -35,7 +35,8 @@
         orgFormatting = flake-lib.lib.mkFormatting {
           inherit self system;
         };
-        pnpm = pkgs.pnpm_10.override {
+        # A consumer may follow a nixpkgs where `pnpm_10` is the pinned 10.34.0 escape hatch and `pnpm_10_latest` is the unflagged current 10.x; inheriting 10.34.0's knownVulnerabilities onto the pinned version leaves it un-evaluable there.
+        pnpm = (pkgs.pnpm_10_latest or pkgs.pnpm_10).override {
           hash = pnpmHash;
           version = pnpmVersion;
         };
