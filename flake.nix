@@ -124,15 +124,16 @@
               name = "marinara-engine-runtime";
             }).fhsenv;
           pname = "marinara-engine";
-          pnpmDeps = pkgs.fetchPnpmDeps {
+          pnpmDeps = flake-lib.lib.mkPnpmDeps {
             inherit (finalAttrs) pname src version;
-            inherit pnpm;
+            inherit pkgs pnpm;
             fetcherVersion = 4;
             hash = pnpmDepsHash;
             nativeBuildInputs = [ pkgs.nodejs_24 ];
             prePnpmInstall = ''
               substituteInPlace .npmrc --replace-fail "store-dir=.pnpm-store" ""
             '';
+            sourceFingerprint = sourceHash;
           };
           postPatch = ''
             substituteInPlace packages/server/src/services/sandbox/bubblewrap-runtime.ts \
