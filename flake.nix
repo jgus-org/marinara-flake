@@ -22,8 +22,7 @@
         pin = import ./pin.nix;
         inherit (pin)
           pnpmDepsHash
-          pnpmHash
-          pnpmVersion
+          pnpmMajor
           sourceHash
           sourceRev
           version
@@ -35,18 +34,36 @@
         orgFormatting = flake-lib.lib.mkFormatting {
           inherit self system;
         };
-        pnpm = (pkgs.pnpm_10_latest or pkgs.pnpm_10).override {
-          hash = pnpmHash;
-          version = pnpmVersion;
-        };
         source = {
           owner = "Pasta-Devs";
           repo = "Marinara-Engine";
           type = "github";
         };
+        src = pkgs.fetchFromGitHub {
+          inherit (source) owner repo;
+          hash = sourceHash;
+          rev = sourceRev;
+        };
+        marinaraDeps = flake-lib.lib.mkPnpmDeps {
+          inherit
+            pkgs
+            pnpmMajor
+            src
+            version
+            ;
+          fetcherVersion = 4;
+          hash = pnpmDepsHash;
+          nativeBuildInputs = [ pkgs.nodejs_24 ];
+          pname = "marinara-engine";
+          prePnpmInstall = ''
+            substituteInPlace .npmrc --replace-fail "store-dir=.pnpm-store" ""
+          '';
+          sourceFingerprint = sourceHash;
+        };
+        marinaraToolchain = marinaraDeps.passthru.pnpmToolchain;
         runtimePrograms = [
           pkgs.bubblewrap
-          pnpm
+          marinaraToolchain.pnpm
           pkgs.python3
         ];
         runtimeLibraries = [
@@ -55,7 +72,7 @@
           pkgs.vulkan-loader
         ];
 
-        marinara = pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
+        marinara = pkgs.stdenvNoCC.mkDerivation {
           inherit version;
           buildPhase = ''
             runHook preBuild
@@ -117,23 +134,14 @@
             pkgs.makeWrapper
             pkgs.nodejs_24
             pkgs.pnpmConfigHook
-            pnpm
+            marinaraToolchain.pnpm
           ];
           passthru.runtimeRootfs =
             (pkgs.buildFHSEnv {
               name = "marinara-engine-runtime";
             }).fhsenv;
           pname = "marinara-engine";
-          pnpmDeps = pkgs.fetchPnpmDeps {
-            inherit (finalAttrs) pname src version;
-            inherit pnpm;
-            fetcherVersion = 4;
-            hash = pnpmDepsHash;
-            nativeBuildInputs = [ pkgs.nodejs_24 ];
-            prePnpmInstall = ''
-              substituteInPlace .npmrc --replace-fail "store-dir=.pnpm-store" ""
-            '';
-          };
+          pnpmDeps = marinaraDeps;
           postPatch = ''
             substituteInPlace packages/server/src/services/sandbox/bubblewrap-runtime.ts \
               --replace-fail \
@@ -147,12 +155,8 @@
           prePnpmInstall = ''
             substituteInPlace .npmrc --replace-fail "store-dir=.pnpm-store" ""
           '';
-          src = pkgs.fetchFromGitHub {
-            inherit (source) owner repo;
-            hash = sourceHash;
-            rev = sourceRev;
-          };
-        });
+          src = marinaraToolchain.src;
+        };
       in
       {
         checks.formatting = orgFormatting.check;
@@ -162,40 +166,17 @@
           default = marinara;
           update-branches = flake-lib.lib.mkUpdateBranches {
             inherit pkgs source;
-            extraHashes = [
-              "pnpmVersion"
-              "pnpmHash"
-            ];
+            extraHashes = [ "pnpmMajor" ];
             minimumTrackingVersion = "2.4.3";
             pinSchema = "github-pnpm";
           };
           update-version = flake-lib.lib.mkUpdateVersion {
             inherit pkgs source;
-            artifactHook = lib.getExe (
-              pkgs.writeShellApplication {
-                name = "marinara-pnpm-pin";
-                runtimeInputs = [
-                  pkgs.gh
-                  pkgs.jq
-                  pkgs.nix
-                ];
-                text = ''
-                  PACKAGE_JSON="$(gh api "/repos/''${GH_OWNER}/''${GH_REPO}/contents/package.json?ref=''${NEW_REV}" -H "Accept: application/vnd.github.raw")"
-                  PNPM_VERSION="$(jq -r '(.packageManager // "") | select(startswith("pnpm@")) | split("@")[1] | split("+")[0]' <<<"''${PACKAGE_JSON}")"
-                  if [[ -z "''${PNPM_VERSION}" ]]; then
-                    echo "Marinara package.json declares no pnpm packageManager version" >&2
-                    exit 1
-                  fi
-                  PNPM_HASH="$(nix store prefetch-file --json --hash-type sha256 "https://registry.npmjs.org/pnpm/-/pnpm-''${PNPM_VERSION}.tgz" | jq -r .hash)"
-                  printf 'pnpmVersion=%s\npnpmHash=%s\n' "''${PNPM_VERSION}" "''${PNPM_HASH}"
-                '';
-              }
-            );
+            artifactHook = flake-lib.lib.mkPnpmDeclarationHook {
+              inherit pkgs;
+            };
             buildFailureHash = "pnpmDepsHash";
-            extraHashes = [
-              "pnpmVersion"
-              "pnpmHash"
-            ];
+            extraHashes = [ "pnpmMajor" ];
           };
         };
       }
